@@ -16,3 +16,15 @@
 $router->get('/', function () use ($router) {
     return $router->app->version();
 });
+
+$router->post('login', 'AuthController@login');
+$router->post('register', 'AuthController@register');
+
+$router->group(['middleware' => 'auth'], function() use ($router) {
+    $router->post('check_token', 'AuthController@check_token');
+    $router->post('logout', 'AuthController@logout');
+
+    $router->get('cleansing', 'PreprocessingController@start');
+
+    $router->post('import', 'DataController@import');
+});

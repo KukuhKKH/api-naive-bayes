@@ -6,7 +6,11 @@
     "type": "project",
     "require": {
         "php": "^7.3|^8.0",
-        "laravel/lumen-framework": "^8.0"
+        "anik/form-request": "^4.2",
+        "dusterio/lumen-passport": "^0.3.4",
+        "flipbox/lumen-generator": "^8.2",
+        "laravel/lumen-framework": "^8.0",
+        "maatwebsite/excel": "^3.1"
     },
     "require-dev": {
         "fakerphp/faker": "^1.9.1",
