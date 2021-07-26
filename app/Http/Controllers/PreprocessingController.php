@@ -2,43 +2,61 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\PreprosessingData;
 use App\Models\RawData;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use App\Models\StopRemoval;
 use Illuminate\Support\Str;
+use Illuminate\Http\Request;
+use App\Models\PreprosessingData;
+use App\Models\Word;
+use App\Traits\StringConvertion;
+use Illuminate\Support\Facades\DB;
+use Sastrawi\Stemmer\StemmerFactory;
 
 class PreprocessingController extends Controller
 {
+    use StringConvertion; // memanggil trait
+
     public function start() {
         DB::beginTransaction();
         try {
             $data = RawData::all();
             $case_folding = $this->case_folding($data);
             $cleansing = $this->cleansing($case_folding);
+            $stopRemoval = $this->stop_removal($cleansing);
+            // $tokenizing = $this->tokenizing($stopRemoval);
+            $stemming = $this->stemming($stopRemoval);
+            $word = [];
+            PreprosessingData::query()->truncate(); // Hapus all data
             foreach ($cleansing as $key => $value) {
                 PreprosessingData::create([
                     'raw_data_id' => $value['id'],
                     'result' => $value['text']
-                ]);
+                ]); // Insert ke databse
+                $_word = explode(" ", $value['text']); // membuat array dari teks
+                $result_word = $this->get_data_unique($_word); // cek kata yang sama
+                array_push($word, $result_word); // push ke arr baru
             }
-            DB::commit();
+            Word::query()->truncate(); // hapus data di db
+            Word::create([
+                'word' => $word
+            ]); // insert ke db
+            DB::commit(); // lakukan query
             return response()->json([
                 'status' => true,
                 'message' => [
                     'head' => "Success",
                     'body' => 'Preprosessing Data'
                 ]
-            ], 200);
+            ], 200); // pesan berhasil
         } catch(\Exception $e) {
-            DB::rollBack();
+            DB::rollBack(); // kembalikan query jika ada yang gagal
             return response()->json([
                 'status' => false,
                 'message' => [
                     'head' => "Error",
                     'body' => $e->getMessage()
                 ]
-            ], 500);
+            ], 500); // pesan error
         }
     }
 
@@ -47,8 +65,8 @@ class PreprocessingController extends Controller
         foreach ($data as $key => $value) {
             $temp = [];
             $temp['id'] = $value->id;
-            $temp['text'] = Str::lower($value->text);
-            array_push($result, $temp);
+            $temp['text'] = trim(preg_replace('/\s+/', ' ', Str::lower($value->text)), ' '); // huruf kecil
+            array_push($result, $temp); // push ke array
         }
         return $result;
     }
@@ -77,8 +95,53 @@ class PreprocessingController extends Controller
             $clear_character = str_replace('rt', ' ', $clear_character);
 
             $clear_character = str_replace('-', ' ', $clear_character);
+            $clear_character = str_replace('/\s+/', ' ', $clear_character);
             $temp['id'] = $value['id'];
             $temp['text'] = trim($clear_character, ' ');
+            array_push($result, $temp);
+        }
+        return $result;
+    }
+
+    public function tokenizing($data) {
+        $result = [];
+        foreach ($data as $key => $value) {
+            $temp = [];
+            $temp['id'] = $value['id'];
+            $temp['text'] = explode(" ",$value['text']);
+            array_push($result, $temp);
+        }
+
+        return $result;
+    }
+
+    public function stop_removal($data) {
+        $stopRemoval = StopRemoval::all();
+        $singleData = $result = [];
+        foreach ($stopRemoval as $key => $value) {
+            $singleData[] = $value->word;
+        }
+
+        foreach ($data as $key => $value) {
+            $temp = [];
+            $temp['id'] = $value['id'];
+            $removal = preg_replace('/\b('.implode('|',$singleData).')\b/','',$value['text']);
+            $removal = preg_replace('/\s+/', ' ', $removal);
+            $temp['text'] = $removal;
+            array_push($result, $temp);
+        }
+        return $result;
+    }
+
+    public function stemming($data) {
+        $stemmerFactory = new StemmerFactory();
+        $stemmer  = $stemmerFactory->createStemmer();
+        $result = [];
+
+        foreach ($data as $key => $value) {
+            $temp = [];
+            $temp['id'] = $value['id'];
+            $temp['text'] = $stemmer->stem($value['text']);
             array_push($result, $temp);
         }
         return $result;

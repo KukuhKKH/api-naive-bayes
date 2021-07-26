@@ -16,10 +16,22 @@ class DataImport implements ToModel, WithHeadingRow
      */
     public function model(array $row)
     {
+        if(isset($row['label'])) {
+            if($row['label'] == 'positif') {
+                $flag = 1;
+            } else if($row['label'] == 'netral') {
+                $flag = 2;
+            } else {
+                $flag = 0;
+            }
+        } else {
+            $flag = '';
+        }
         return new RawData([
            'author'     => isset($row['author']) ? trim($row['author']) : '',
            'text'    => isset($row['text']) ? trim($row['text']) : '',
-           'platform' => isset($row['platform']) ? trim($row['platform']) : ''
+           'platform' => isset($row['platform']) ? trim($row['platform']) : '',
+           'flag' => $flag
         ]);
     }
 }
